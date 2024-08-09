@@ -20,7 +20,6 @@ if 'CONN' not in st.session_state or st.session_state.CONN is None:
         host=HOST,
         port=443,
         warehouse="CORTEX_ANALYST_WH",
-        role="ACCOUNTADMIN",
     )
 
 
