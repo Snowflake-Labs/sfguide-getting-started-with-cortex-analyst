@@ -1,0 +1,26 @@
+Region_id,Region,State
+1,North America,New York
+1,North America,California
+1,North America,Texas
+1,North America,Ontario
+1,North America,Quebec
+2,Europe,England
+2,Europe,Germany
+2,Europe,France
+2,Europe,Spain
+2,Europe,Italy
+3,Asia,Japan
+3,Asia,South Korea
+3,Asia,China
+3,Asia,India
+3,Asia,Singapore
+4,South America,Brazil
+4,South America,Argentina
+4,South America,Chile
+4,South America,Peru
+4,South America,Colombia
+5,Africa,South Africa
+5,Africa,Nigeria
+5,Africa,Kenya
+5,Africa,Egypt
+5,Africa,Ghana
