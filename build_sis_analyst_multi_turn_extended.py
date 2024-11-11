@@ -263,7 +263,7 @@ def display_sql_query(sql: str, message_index: int):
                 return
 
             # Show query results in two tabs
-            data_tab, chart_tab = st.tabs(["Data 📄", "Chart 📉"])
+            data_tab, chart_tab = st.tabs(["Data 📄", "Chart 📈"])
             with data_tab:
                 st.dataframe(df, use_container_width=True)
 
