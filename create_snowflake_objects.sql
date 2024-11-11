@@ -51,11 +51,11 @@ CREATE OR REPLACE STAGE raw_data DIRECTORY = (ENABLE = TRUE);
 -- Fact table: daily_revenue
 CREATE OR REPLACE TABLE cortex_analyst_demo.revenue_timeseries.daily_revenue (
     date DATE,
-    product_id INT,
-    region_id INT,
     revenue FLOAT,
     cogs FLOAT,
-    forecasted_revenue FLOAT
+    forecasted_revenue FLOAT,
+    product_id INT,
+    region_id INT
 );
 
 -- Dimension table: product_dim
