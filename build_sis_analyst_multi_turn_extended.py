@@ -22,7 +22,7 @@ AVAILABLE_SEMANTIC_MODELS_PATHS = [
     "CORTEX_ANALYST_DEMO.REVENUE_TIMESERIES.RAW_DATA/revenue_timeseries.yaml"
 ]
 API_ENDPOINT = "/api/v2/cortex/analyst/message"
-API_TIMEOUT = 30000  # in milliseconds
+API_TIMEOUT = 50000  # in milliseconds
 
 # Initialize a Snowpark session for executing queries
 session = get_active_session()
