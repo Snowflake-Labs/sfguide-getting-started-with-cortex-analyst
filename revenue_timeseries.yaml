@@ -48,13 +48,20 @@ tables:
         expr: abs(forecasted_revenue - revenue)
         data_type: number
         default_aggregation: avg
+    dimensions:
+      - name: product_id
+        expr: product_id
+        data_type: number
+      - name: region_id
+        expr: region_id
+        data_type: number
 
   - name: product
     description: Product dimension table with unique product identifiers and attributes.
     base_table:
       database: cortex_analyst_demo
       schema: revenue_timeseries
-      table: product
+      table: product_dim
     primary_key:
       columns:
         - product_id
@@ -78,7 +85,7 @@ tables:
     base_table:
       database: cortex_analyst_demo
       schema: revenue_timeseries
-      table: region
+      table: region_dim
     primary_key:
       columns:
         - region_id
@@ -96,17 +103,18 @@ tables:
           - Asia
           - South America
           - Africa
-          
+
   - name: product_dimension
     base_table:
       database: cortex_analyst_demo
       schema: revenue_timeseries
-      table: product_dimension
+      table: product_dim
 
     dimensions:
       - name: product_line
         expr: product_line
         cortex_search_service_name: product_line_search_service
+        data_type: varchar
 
 
 relationships:

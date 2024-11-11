@@ -11,8 +11,8 @@ CREATE OR REPLACE DYNAMIC TABLE product_landing_table
 
   CREATE OR REPLACE CORTEX SEARCH SERVICE product_line_search_service
   ON product_dimension
-  WAREHOUSE = xsmall
+  WAREHOUSE = cortex_analyst_wh
   TARGET_LAG = '1 hour'
   AS (
       SELECT product_dimension FROM product_landing_table
-  );`
+  );
