@@ -6,6 +6,11 @@ tables:
       database: cortex_analyst_demo
       schema: revenue_timeseries
       table: daily_revenue
+    primary_key:
+      columns:
+        - date
+        - product_id
+        - region_id
     time_dimensions:
       - name: date
         expr: date
@@ -43,24 +48,30 @@ tables:
         expr: abs(forecasted_revenue - revenue)
         data_type: number
         default_aggregation: avg
+    dimensions:
+      - name: product_id
+        expr: product_id
+        data_type: number
+      - name: region_id
+        expr: region_id
+        data_type: number
 
-  - name: daily_revenue_by_product_line
-    description: Daily revenue sliced by product line, aligned with daily "Cost of Goods Sold" (COGS), and forecasted revenue.
+  - name: product
+    description: Product dimension table with unique product identifiers and attributes.
     base_table:
       database: cortex_analyst_demo
       schema: revenue_timeseries
-      table: daily_revenue_by_product
-    time_dimensions:
-      - name: date
-        expr: date
-        description: date with measures of revenue, COGS, and forecasted revenue for each product line
-        unique: false
-        data_type: date
+      table: product_dim
+    primary_key:
+      columns:
+        - product_id
     dimensions:
+      - name: product_id
+        expr: product_id
+        data_type: number
       - name: product_line
         expr: product_line
-        description: product line associated with it's own slice of revenue
-        unique: false
+        description: Product line associated with revenue
         data_type: varchar
         sample_values:
           - Electronics
@@ -68,55 +79,23 @@ tables:
           - Home Appliances
           - Toys
           - Books
-    measures:
-      - name: daily_revenue_per_product_line
-        expr: revenue
-        description: revenue associated with a given product line for the given day
-        synonyms: ["sales", "income"]
-        default_aggregation: sum
-        data_type: number
-      - name: daily_cogs_per_product_line
-        expr: cogs
-        description: cost of goods sold associated with a given product line for the given day
-        synonyms: ["cost", "expenditures"]
-        default_aggregation: sum
-        data_type: number
-      - name: daily_forecasted_revenue_per_product_line
-        expr: forecasted_revenue
-        description: total forecasted revenue associated with a given product line for the given day
-        synonyms: ["forecasted sales", "forecasted income"]
-        default_aggregation: sum
-        data_type: number
-      - name: daily_profit_per_product_line
-        description: profit is the difference between revenue and expenses.
-        expr: revenue - cogs
-        data_type: number
-      - name: daily_forecast_abs_error_per_product_line
-        synonyms:
-          - absolute error
-          - L1
-        description: absolute error between forecasted and actual revenue
-        expr: abs(forecasted_revenue - revenue)
-        data_type: number
-        default_aggregation: avg
 
-  - name: daily_revenue_by_region
-    description: Daily revenue sliced by region, aligned with daily "Cost of Goods Sold" (COGS), and forecasted revenue.
+  - name: region
+    description: Region dimension table with unique region identifiers and geographic attributes.
     base_table:
       database: cortex_analyst_demo
       schema: revenue_timeseries
-      table: daily_revenue_by_region
-    time_dimensions:
-      - name: date
-        expr: date
-        description: date with measures of revenue, COGS, and forecasted revenue for each region
-        unique: false
-        data_type: date
+      table: region_dim
+    primary_key:
+      columns:
+        - region_id
     dimensions:
+      - name: region_id
+        expr: region_id
+        data_type: number
       - name: sales_region
         expr: sales_region
-        description: region associated with it's own slice of revenue
-        unique: false
+        description: Region associated with revenue
         data_type: varchar
         sample_values:
           - North America
@@ -124,40 +103,43 @@ tables:
           - Asia
           - South America
           - Africa
-    measures:
-      - name: daily_revenue_per_sales_region
-        expr: revenue
-        description: revenue associated with a given region for the given day
-        synonyms: ["sales", "income"]
-        default_aggregation: sum
-        data_type: number
-      - name: daily_cogs_per_sales_region
-        expr: cogs
-        description: cost of goods sold associated with a given region for the given day
-        synonyms: ["cost", "expenditures"]
-        default_aggregation: sum
-        data_type: number
-      - name: daily_forecasted_revenue_per_sales_region
-        expr: forecasted_revenue
-        description: total forecasted revenue associated with a given region for the given day
-        synonyms: ["forecasted sales", "forecasted income"]
-        default_aggregation: sum
-        data_type: number
-      - name: daily_profit_per_sales_region
-        description: profit is the difference between revenue and expenses.
-        expr: revenue - cogs
-        data_type: number
-      - name: daily_forecast_abs_error_per_sales_region
-        synonyms:
-          - absolute error
-          - L1
-        description: absolute error between forecasted and actual revenue
-        expr: abs(forecasted_revenue - revenue)
-        data_type: number
-        default_aggregation: avg
+
+  - name: product_dimension
+    base_table:
+      database: cortex_analyst_demo
+      schema: revenue_timeseries
+      table: product_dim
+
+    dimensions:
+      - name: product_line
+        expr: product_line
+        cortex_search_service_name: product_line_search_service
+        data_type: varchar
+
+
+relationships:
+  - name: revenue_to_product
+    left_table: daily_revenue
+    right_table: product
+    relationship_columns:
+      - left_column: product_id
+        right_column: product_id
+    join_type: left_outer
+    relationship_type: many_to_one
+
+  - name: revenue_to_region
+    left_table: daily_revenue
+    right_table: region
+    relationship_columns:
+      - left_column: region_id
+        right_column: region_id
+    join_type: left_outer
+    relationship_type: many_to_one
+
+  
 
 verified_queries:
-  # For eval sample nlimtiaco_sc_3__0
+ # For eval sample nlimtiaco_sc_3__0
   - name: "daily cumulative expenses in 2023 dec"
     question: "daily cumulative expenses in 2023 dec"
     verified_at: 1714752498
@@ -171,22 +153,21 @@ SELECT
       AND CURRENT ROW
   ) AS cumulative_cogs
 FROM
-  __daily_revenue
+  daily_revenue
 WHERE
   date BETWEEN '2023-12-01'
   AND '2023-12-31'
 ORDER BY
   date DESC;
 "
-  # For eval sample nlimtiaco_sc_6__0
+ # For eval sample nlimtiaco_sc_6__0
   - name: "lowest revenue each month"
-    question: For each month, what was the lowest daily revenue and on what date did
-      that lowest revenue occur?
+    question: "For each month, what was the lowest daily revenue and on what date did that lowest revenue occur?"
     sql: "WITH monthly_min_revenue AS (
         SELECT
           DATE_TRUNC('MONTH', date) AS month,
           MIN(daily_revenue) AS min_revenue
-        FROM __daily_revenue
+        FROM daily_revenue
           GROUP BY
             DATE_TRUNC('MONTH', date)
         )
@@ -194,7 +175,7 @@ ORDER BY
           mmr.month,
           mmr.min_revenue,
           dr.date AS min_revenue_date
-        FROM monthly_min_revenue AS mmr JOIN __daily_revenue AS dr
+        FROM monthly_min_revenue AS mmr JOIN daily_revenue AS dr
           ON mmr.month = DATE_TRUNC('MONTH', dr.date) AND mmr.min_revenue = dr.daily_revenue
         ORDER BY mmr.month DESC NULLS LAST"
     verified_at: 1715187400

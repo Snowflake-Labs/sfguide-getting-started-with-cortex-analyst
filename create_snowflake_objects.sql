@@ -1,51 +1,72 @@
-USE ROLE sysadmin;
-
 /*--
-• database, schema, warehouse and stage creation
+• Database, schema, warehouse, and stage creation
 --*/
 
--- create demo database
+USE ROLE SECURITYADMIN;
+
+CREATE ROLE cortex_user_role;
+GRANT DATABASE ROLE SNOWFLAKE.CORTEX_USER TO ROLE cortex_user_role;
+
+GRANT ROLE cortex_user_role TO USER <user>;
+
+USE ROLE sysadmin;
+
+-- Create demo database
 CREATE OR REPLACE DATABASE cortex_analyst_demo;
 
--- create schema
-CREATE OR REPLACE SCHEMA revenue_timeseries;
+-- Create schema
+CREATE OR REPLACE SCHEMA cortex_analyst_demo.revenue_timeseries;
 
--- create warehouse
+-- Create warehouse
 CREATE OR REPLACE WAREHOUSE cortex_analyst_wh
     WAREHOUSE_SIZE = 'large'
     WAREHOUSE_TYPE = 'standard'
     AUTO_SUSPEND = 60
     AUTO_RESUME = TRUE
     INITIALLY_SUSPENDED = TRUE
-COMMENT = 'warehouse for cortex analyst demo';
+COMMENT = 'Warehouse for Cortex Analyst demo';
+
+GRANT USAGE ON WAREHOUSE cortex_analyst_wh TO ROLE cortex_user_role;
+GRANT OPERATE ON WAREHOUSE cortex_analyst_wh TO ROLE cortex_user_role;
+
+GRANT OWNERSHIP ON SCHEMA cortex_analyst_demo.revenue_timeseries TO ROLE cortex_user_role;
+GRANT OWNERSHIP ON DATABASE cortex_analyst_demo TO ROLE cortex_user_role;
 
 
+USE ROLE cortex_user_role;
+
+-- Use the created warehouse
 USE WAREHOUSE cortex_analyst_wh;
 
-CREATE STAGE raw_data DIRECTORY = (ENABLE = TRUE);
+USE DATABASE cortex_analyst_demo;
+USE SCHEMA cortex_analyst_demo.revenue_timeseries;
+
+-- Create stage for raw data
+CREATE OR REPLACE STAGE raw_data DIRECTORY = (ENABLE = TRUE);
 
 /*--
-• table creation
+• Fact and Dimension Table Creation
 --*/
-CREATE OR REPLACE TABLE CORTEX_ANALYST_DEMO.REVENUE_TIMESERIES.DAILY_REVENUE (
-	DATE DATE,
-	REVENUE FLOAT,
-	COGS FLOAT,
-	FORECASTED_REVENUE FLOAT
+
+-- Fact table: daily_revenue
+CREATE OR REPLACE TABLE cortex_analyst_demo.revenue_timeseries.daily_revenue (
+    date DATE,
+    revenue FLOAT,
+    cogs FLOAT,
+    forecasted_revenue FLOAT,
+    product_id INT,
+    region_id INT
 );
 
-CREATE OR REPLACE TABLE CORTEX_ANALYST_DEMO.REVENUE_TIMESERIES.DAILY_REVENUE_BY_PRODUCT (
-	DATE DATE,
-	PRODUCT_LINE VARCHAR(16777216),
-	REVENUE FLOAT,
-	COGS FLOAT,
-	FORECASTED_REVENUE FLOAT
+-- Dimension table: product_dim
+CREATE OR REPLACE TABLE cortex_analyst_demo.revenue_timeseries.product_dim (
+    product_id INT,
+    product_line VARCHAR(16777216)
 );
 
-CREATE OR REPLACE TABLE CORTEX_ANALYST_DEMO.REVENUE_TIMESERIES.DAILY_REVENUE_BY_REGION (
-	DATE DATE,
-	SALES_REGION VARCHAR(16777216),
-	REVENUE FLOAT,
-	COGS FLOAT,
-	FORECASTED_REVENUE FLOAT
+-- Dimension table: region_dim
+CREATE OR REPLACE TABLE cortex_analyst_demo.revenue_timeseries.region_dim (
+    region_id INT,
+    sales_region VARCHAR(16777216),
+    state VARCHAR(16777216)
 );
