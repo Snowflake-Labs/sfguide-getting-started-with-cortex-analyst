@@ -7,7 +7,8 @@ USE ROLE SECURITYADMIN;
 CREATE ROLE cortex_user_role;
 GRANT DATABASE ROLE SNOWFLAKE.CORTEX_USER TO ROLE cortex_user_role;
 
-GRANT ROLE cortex_user_role TO USER <user>;
+-- TODO: Replace <your_user> with your username
+GRANT ROLE cortex_user_role TO USER <your_user>;
 
 USE ROLE sysadmin;
 
