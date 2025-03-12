@@ -5,6 +5,7 @@ This app allows users to interact with their data using natural language.
 """
 import json  # To handle JSON data
 import time
+from datetime import datetime
 from typing import Dict, List, Optional, Tuple, Union
 
 import _snowflake  # For interacting with Snowflake-specific APIs
@@ -14,7 +15,6 @@ from snowflake.snowpark.context import (
     get_active_session,
 )  # To interact with Snowflake sessions
 from snowflake.snowpark.exceptions import SnowparkSQLException
-from datetime import datetime
 
 # List of available semantic model paths in the format: <DATABASE>.<SCHEMA>.<STAGE>/<FILE-NAME>
 # Each path points to a YAML file defining a semantic model
@@ -47,7 +47,9 @@ def reset_session_state():
     st.session_state.messages = []  # List to store conversation messages
     st.session_state.active_suggestion = None  # Currently selected suggestion
     st.session_state.warnings = []  # List to store warnings
-    st.session_state.form_submitted = {}    # Dictionary to store feedback submission for each request
+    st.session_state.form_submitted = (
+        {}
+    )  # Dictionary to store feedback submission for each request
 
 
 def show_header_and_sidebar():
@@ -214,7 +216,11 @@ def display_conversation():
                 display_message(content, idx)
 
 
-def display_message(content: List[Dict[str, Union[str, Dict]]], message_index: int, request_id: Union[str, None] = None):
+def display_message(
+    content: List[Dict[str, Union[str, Dict]]],
+    message_index: int,
+    request_id: Union[str, None] = None,
+):
     """
     Display a single message content.
 
@@ -229,12 +235,14 @@ def display_message(content: List[Dict[str, Union[str, Dict]]], message_index: i
             # Display suggestions as buttons
             for suggestion_index, suggestion in enumerate(item["suggestions"]):
                 if st.button(
-                        suggestion, key=f"suggestion_{message_index}_{suggestion_index}"
+                    suggestion, key=f"suggestion_{message_index}_{suggestion_index}"
                 ):
                     st.session_state.active_suggestion = suggestion
         elif item["type"] == "sql":
             # Display the SQL query and results
-            display_sql_query(item["statement"], message_index, item["confidence"], request_id)
+            display_sql_query(
+                item["statement"], message_index, item["confidence"], request_id
+            )
         else:
             # Handle other content types if necessary
             pass
@@ -263,20 +271,29 @@ def display_sql_confidence(confidence: dict):
     if confidence is None:
         return
     verified_query_used = confidence["verified_query_used"]
-    with st.popover("Verified Query Used", help="The verified query from [Verified Query Repository](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-analyst/verified-query-repository), used to generate the SQL"):
+    with st.popover(
+        "Verified Query Used",
+        help="The verified query from [Verified Query Repository](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-analyst/verified-query-repository), used to generate the SQL",
+    ):
         with st.container():
             if verified_query_used is None:
-                st.text("There is no query from the Verified Query Repository used to generate this SQL answer")
+                st.text(
+                    "There is no query from the Verified Query Repository used to generate this SQL answer"
+                )
                 return
             st.text(f"Name: {verified_query_used['name']}")
             st.text(f"Question: {verified_query_used['question']}")
             st.text(f"Verified by: {verified_query_used['verified_by']}")
-            st.text(f"Verified at: {datetime.fromtimestamp(verified_query_used['verified_at'])}")
+            st.text(
+                f"Verified at: {datetime.fromtimestamp(verified_query_used['verified_at'])}"
+            )
             st.text("SQL query:")
-            st.code(verified_query_used['sql'], language="sql", wrap_lines=True)
+            st.code(verified_query_used["sql"], language="sql", wrap_lines=True)
 
 
-def display_sql_query(sql: str, message_index: int, confidence: dict, request_id: Union[str, None] = None):
+def display_sql_query(
+    sql: str, message_index: int, confidence: dict, request_id: Union[str, None] = None
+):
     """
     Executes the SQL query and displays the results in form of data frame and charts.
 
@@ -348,33 +365,39 @@ def display_charts_tab(df: pd.DataFrame, message_index: int) -> None:
 def display_feedback_section(request_id: str):
     with st.popover("📝 Query Feedback"):
         if request_id not in st.session_state.form_submitted:
-            with st.form(f'feedback_form_{request_id}', clear_on_submit=True):
-                positive = st.radio("Rate the generated SQL", options=['👍', '👎'], horizontal=True)
-                positive = (positive == '👍')
-                submit_disabled = request_id in st.session_state.form_submitted and st.session_state.form_submitted[
-                    request_id]
+            with st.form(f"feedback_form_{request_id}", clear_on_submit=True):
+                positive = st.radio(
+                    "Rate the generated SQL", options=["👍", "👎"], horizontal=True
+                )
+                positive = positive == "👍"
+                submit_disabled = (
+                    request_id in st.session_state.form_submitted
+                    and st.session_state.form_submitted[request_id]
+                )
 
                 feedback_message = st.text_input("Optional feedback message")
                 submitted = st.form_submit_button("Submit", disabled=submit_disabled)
                 if submitted:
                     err_msg = submit_feedback(request_id, positive, feedback_message)
-                    st.session_state.form_submitted[request_id] = {
-                        "error": err_msg
-                    }
+                    st.session_state.form_submitted[request_id] = {"error": err_msg}
                     st.session_state.popover_open = False
                     st.rerun()
-        elif request_id in st.session_state.form_submitted and st.session_state.form_submitted[request_id][
-            "error"] is None:
+        elif (
+            request_id in st.session_state.form_submitted
+            and st.session_state.form_submitted[request_id]["error"] is None
+        ):
             st.success("Feedback submitted", icon="✅")
         else:
             st.error(st.session_state.form_submitted[request_id]["error"])
 
 
-def submit_feedback(request_id: str, positive: bool, feedback_message: str) -> Optional[str]:
+def submit_feedback(
+    request_id: str, positive: bool, feedback_message: str
+) -> Optional[str]:
     request_body = {
         "request_id": request_id,
         "positive": positive,
-        "feedback_message": feedback_message
+        "feedback_message": feedback_message,
     }
     resp = _snowflake.send_snow_api_request(
         "POST",  # method
