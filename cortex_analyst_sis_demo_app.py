@@ -3,10 +3,9 @@ Cortex Analyst App
 ====================
 This app allows users to interact with their data using natural language.
 """
-
 import json  # To handle JSON data
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import _snowflake  # For interacting with Snowflake-specific APIs
 import pandas as pd
@@ -15,6 +14,7 @@ from snowflake.snowpark.context import (
     get_active_session,
 )  # To interact with Snowflake sessions
 from snowflake.snowpark.exceptions import SnowparkSQLException
+from datetime import datetime
 
 # List of available semantic model paths in the format: <DATABASE>.<SCHEMA>.<STAGE>/<FILE-NAME>
 # Each path points to a YAML file defining a semantic model
@@ -22,6 +22,7 @@ AVAILABLE_SEMANTIC_MODELS_PATHS = [
     "CORTEX_ANALYST_DEMO.REVENUE_TIMESERIES.RAW_DATA/revenue_timeseries.yaml"
 ]
 API_ENDPOINT = "/api/v2/cortex/analyst/message"
+FEEDBACK_API_ENDPOINT = "/api/v2/cortex/analyst/feedback"
 API_TIMEOUT = 50000  # in milliseconds
 
 # Initialize a Snowpark session for executing queries
@@ -38,12 +39,15 @@ def main():
     display_conversation()
     handle_user_inputs()
     handle_error_notifications()
+    display_warnings()
 
 
 def reset_session_state():
     """Reset important session state elements."""
     st.session_state.messages = []  # List to store conversation messages
     st.session_state.active_suggestion = None  # Currently selected suggestion
+    st.session_state.warnings = []  # List to store warnings
+    st.session_state.form_submitted = {}    # Dictionary to store feedback submission for each request
 
 
 def show_header_and_sidebar():
@@ -96,6 +100,8 @@ def process_user_input(prompt: str):
     Args:
         prompt (str): The user's input.
     """
+    # Clear previous warnings at the start of a new request
+    st.session_state.warnings = []
 
     # Create a new message, append to history and display imidiately
     new_user_message = {
@@ -125,8 +131,21 @@ def process_user_input(prompt: str):
                     "request_id": response["request_id"],
                 }
                 st.session_state["fire_API_error_notify"] = True
+
+            if "warnings" in response:
+                st.session_state.warnings = response["warnings"]
+
             st.session_state.messages.append(analyst_message)
             st.rerun()
+
+
+def display_warnings():
+    """
+    Display warnings to the user.
+    """
+    warnings = st.session_state.warnings
+    for warning in warnings:
+        st.warning(warning["message"], icon="⚠️")
 
 
 def get_analyst_response(messages: List[Dict]) -> Tuple[Dict, Optional[str]]:
@@ -189,10 +208,13 @@ def display_conversation():
         role = message["role"]
         content = message["content"]
         with st.chat_message(role):
-            display_message(content, idx)
+            if role == "analyst":
+                display_message(content, idx, message["request_id"])
+            else:
+                display_message(content, idx)
 
 
-def display_message(content: List[Dict[str, str]], message_index: int):
+def display_message(content: List[Dict[str, Union[str, Dict]]], message_index: int, request_id: Union[str, None] = None):
     """
     Display a single message content.
 
@@ -207,12 +229,12 @@ def display_message(content: List[Dict[str, str]], message_index: int):
             # Display suggestions as buttons
             for suggestion_index, suggestion in enumerate(item["suggestions"]):
                 if st.button(
-                    suggestion, key=f"suggestion_{message_index}_{suggestion_index}"
+                        suggestion, key=f"suggestion_{message_index}_{suggestion_index}"
                 ):
                     st.session_state.active_suggestion = suggestion
         elif item["type"] == "sql":
             # Display the SQL query and results
-            display_sql_query(item["statement"], message_index)
+            display_sql_query(item["statement"], message_index, item["confidence"], request_id)
         else:
             # Handle other content types if necessary
             pass
@@ -237,18 +259,38 @@ def get_query_exec_result(query: str) -> Tuple[Optional[pd.DataFrame], Optional[
         return None, str(e)
 
 
-def display_sql_query(sql: str, message_index: int):
+def display_sql_confidence(confidence: dict):
+    if confidence is None:
+        return
+    verified_query_used = confidence["verified_query_used"]
+    with st.popover("Verified Query Used", help="The verified query from [Verified Query Repository](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-analyst/verified-query-repository), used to generate the SQL"):
+        with st.container():
+            if verified_query_used is None:
+                st.text("There is no query from the Verified Query Repository used to generate this SQL answer")
+                return
+            st.text(f"Name: {verified_query_used['name']}")
+            st.text(f"Question: {verified_query_used['question']}")
+            st.text(f"Verified by: {verified_query_used['verified_by']}")
+            st.text(f"Verified at: {datetime.fromtimestamp(verified_query_used['verified_at'])}")
+            st.text("SQL query:")
+            st.code(verified_query_used['sql'], language="sql", wrap_lines=True)
+
+
+def display_sql_query(sql: str, message_index: int, confidence: dict, request_id: Union[str, None] = None):
     """
     Executes the SQL query and displays the results in form of data frame and charts.
 
     Args:
         sql (str): The SQL query.
         message_index (int): The index of the message.
+        confidence (dict): The confidence information of SQL query generation
+        request_id (str): Request id from user request
     """
 
     # Display the SQL query
     with st.expander("SQL Query", expanded=False):
         st.code(sql, language="sql")
+        display_sql_confidence(confidence)
 
     # Display the results of the SQL query
     with st.expander("Results", expanded=True):
@@ -256,19 +298,18 @@ def display_sql_query(sql: str, message_index: int):
             df, err_msg = get_query_exec_result(sql)
             if df is None:
                 st.error(f"Could not execute generated SQL query. Error: {err_msg}")
-                return
-
-            if df.empty:
+            elif df.empty:
                 st.write("Query returned no data")
-                return
+            else:
+                # Show query results in two tabs
+                data_tab, chart_tab = st.tabs(["Data 📄", "Chart 📉"])
+                with data_tab:
+                    st.dataframe(df, use_container_width=True)
 
-            # Show query results in two tabs
-            data_tab, chart_tab = st.tabs(["Data 📄", "Chart 📈 "])
-            with data_tab:
-                st.dataframe(df, use_container_width=True)
-
-            with chart_tab:
-                display_charts_tab(df, message_index)
+                with chart_tab:
+                    display_charts_tab(df, message_index)
+    if request_id:
+        display_feedback_section(request_id)
 
 
 def display_charts_tab(df: pd.DataFrame, message_index: int) -> None:
@@ -302,6 +343,66 @@ def display_charts_tab(df: pd.DataFrame, message_index: int) -> None:
             st.bar_chart(df.set_index(x_col)[y_col])
     else:
         st.write("At least 2 columns are required")
+
+
+def display_feedback_section(request_id: str):
+    with st.popover("📝 Query Feedback"):
+        if request_id not in st.session_state.form_submitted:
+            with st.form(f'feedback_form_{request_id}', clear_on_submit=True):
+                positive = st.radio("Rate the generated SQL", options=['👍', '👎'], horizontal=True)
+                positive = (positive == '👍')
+                submit_disabled = request_id in st.session_state.form_submitted and st.session_state.form_submitted[
+                    request_id]
+
+                feedback_message = st.text_input("Optional feedback message")
+                submitted = st.form_submit_button("Submit", disabled=submit_disabled)
+                if submitted:
+                    err_msg = submit_feedback(request_id, positive, feedback_message)
+                    st.session_state.form_submitted[request_id] = {
+                        "error": err_msg
+                    }
+                    st.session_state.popover_open = False
+                    st.rerun()
+        elif request_id in st.session_state.form_submitted and st.session_state.form_submitted[request_id][
+            "error"] is None:
+            st.success("Feedback submitted", icon="✅")
+        else:
+            st.error(st.session_state.form_submitted[request_id]["error"])
+
+
+def submit_feedback(request_id: str, positive: bool, feedback_message: str) -> Optional[str]:
+    request_body = {
+        "request_id": request_id,
+        "positive": positive,
+        "feedback_message": feedback_message
+    }
+    resp = _snowflake.send_snow_api_request(
+        "POST",  # method
+        FEEDBACK_API_ENDPOINT,  # path
+        {},  # headers
+        {},  # params
+        request_body,  # body
+        None,  # request_guid
+        API_TIMEOUT,  # timeout in milliseconds
+    )
+    if resp["status"] == 200:
+        return None
+
+    parsed_content = json.loads(resp["content"])
+    # Craft readable error message
+    err_msg = f"""
+        🚨 An Analyst API error has occurred 🚨
+        
+        * response code: `{resp['status']}`
+        * request-id: `{parsed_content['request_id']}`
+        * error code: `{parsed_content['error_code']}`
+        
+        Message:
+        ```
+        {parsed_content['message']}
+        ```
+        """
+    return err_msg
 
 
 if __name__ == "__main__":
