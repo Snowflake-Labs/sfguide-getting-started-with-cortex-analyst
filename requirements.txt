@@ -1,0 +1,5 @@
+sseclient-py==1.8.0
+pandas==2.2.3
+Requests==2.32.3
+snowflake_connector_python==3.14.0
+streamlit==1.43.2
