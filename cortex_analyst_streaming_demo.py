@@ -73,25 +73,23 @@ def stream(events: Iterator[sseclient.Event]) -> Generator[Any, Any, Any]:
         if not event:
             return
         data = json.loads(event.data)
-        content_index_changed = data["index"] != prev_index
+        new_content_block = event.event != "message.content.delta" or data["index"] != prev_index
 
-        if prev_type == "sql" and (
-            event.event != "message.content.delta" or content_index_changed
-        ):
+        if prev_type == "sql" and new_content_block:
             # Close sql markdown once sql section finishes.
             yield "\n```\n\n"
         match event.event:
             case "message.content.delta":
                 match data["type"]:
                     case "sql":
-                        if content_index_changed:
+                        if new_content_block:
                             # Add sql markdown when we enter a new sql block.
                             yield "```sql\n"
                         yield data["statement_delta"]
                     case "text":
                         yield data["text_delta"]
                     case "suggestions":
-                        if content_index_changed:
+                        if new_content_block:
                             # Add a suggestions header when we enter a new suggestions block.
                             yield "\nHere are some example questions you could ask:\n\n"
                             yield "\n- "
