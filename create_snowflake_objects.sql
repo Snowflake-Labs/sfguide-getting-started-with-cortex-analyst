@@ -4,11 +4,10 @@
 
 USE ROLE SECURITYADMIN;
 
-CREATE ROLE cortex_user_role;
+CREATE OR ALTER ROLE cortex_user_role;
 GRANT DATABASE ROLE SNOWFLAKE.CORTEX_USER TO ROLE cortex_user_role;
 
--- TODO: Replace <your_user> with your username
-GRANT ROLE cortex_user_role TO USER <your_user>;
+GRANT ROLE cortex_user_role TO ROLE sysadmin;
 
 USE ROLE sysadmin;
 

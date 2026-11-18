@@ -1,0 +1,13 @@
+[project]
+name = "sfguide-getting-started-with-cortex-analyst"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas==2.2.3",
+    "requests==2.32.3",
+    "snowflake-connector-python==3.14.0",
+    "sseclient-py==1.8.0",
+    "streamlit==1.43.2",
+]

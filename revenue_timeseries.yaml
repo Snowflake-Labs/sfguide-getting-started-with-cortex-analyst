@@ -145,21 +145,21 @@ verified_queries:
     verified_at: 1714752498
     verified_by: renee
     sql: "
-SELECT
-  date,
-  SUM(daily_cogs) OVER (
-    ORDER BY
-      date ROWS BETWEEN UNBOUNDED PRECEDING
-      AND CURRENT ROW
-  ) AS cumulative_cogs
-FROM
-  daily_revenue
-WHERE
-  date BETWEEN '2023-12-01'
-  AND '2023-12-31'
-ORDER BY
-  date DESC;
-"
+      SELECT
+        date,
+        SUM(daily_cogs) OVER (
+          ORDER BY
+            date ROWS BETWEEN UNBOUNDED PRECEDING
+            AND CURRENT ROW
+        ) AS cumulative_cogs
+      FROM
+        daily_revenue
+      WHERE
+        date BETWEEN '2023-12-01'
+        AND '2023-12-31'
+      ORDER BY
+        date DESC;
+      "
  # For eval sample nlimtiaco_sc_6__0
   - name: "lowest revenue each month"
     question: "For each month, what was the lowest daily revenue and on what date did that lowest revenue occur?"
