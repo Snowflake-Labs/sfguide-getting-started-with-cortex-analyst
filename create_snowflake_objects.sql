@@ -5,10 +5,14 @@
 USE ROLE SECURITYADMIN;
 
 CREATE ROLE cortex_user_role;
-GRANT DATABASE ROLE SNOWFLAKE.CORTEX_USER TO ROLE cortex_user_role;
+GRANT DATABASE ROLE SNOWFLAKE.CORTEX_USER TO ROLE cortex_user_role; // should be granted to PUBLIC role already - may be superfluous
 
 -- TODO: Replace <your_user> with your username
-GRANT ROLE cortex_user_role TO USER <your_user>;
+    // Add role to pertinent users for testing.
+GRANT ROLE cortex_user_role TO USER KBAILEY;
+GRANT ROLE cortex_user_role TO USER PSCHURRER;
+GRANT ROLE cortex_user_role TO USER JVINCENT;
+GRANT ROLE cortex_user_role TO USER JHUGHES;
 
 USE ROLE sysadmin;
 
@@ -20,7 +24,7 @@ CREATE OR REPLACE SCHEMA cortex_analyst_demo.revenue_timeseries;
 
 -- Create warehouse
 CREATE OR REPLACE WAREHOUSE cortex_analyst_wh
-    WAREHOUSE_SIZE = 'large'
+    WAREHOUSE_SIZE = 'small' //'large' not sure why it needs to be large
     WAREHOUSE_TYPE = 'standard'
     AUTO_SUSPEND = 60
     AUTO_RESUME = TRUE
@@ -30,8 +34,8 @@ COMMENT = 'Warehouse for Cortex Analyst demo';
 GRANT USAGE ON WAREHOUSE cortex_analyst_wh TO ROLE cortex_user_role;
 GRANT OPERATE ON WAREHOUSE cortex_analyst_wh TO ROLE cortex_user_role;
 
-GRANT OWNERSHIP ON SCHEMA cortex_analyst_demo.revenue_timeseries TO ROLE cortex_user_role;
-GRANT OWNERSHIP ON DATABASE cortex_analyst_demo TO ROLE cortex_user_role;
+ GRANT OWNERSHIP ON SCHEMA cortex_analyst_demo.revenue_timeseries TO ROLE cortex_user_role; // In prod environment, would not be set up like this
+ GRANT OWNERSHIP ON DATABASE cortex_analyst_demo TO ROLE cortex_user_role;                  // same issue here
 
 
 USE ROLE cortex_user_role;
